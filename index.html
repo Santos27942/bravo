@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Cadastro de Produtos - Padaria</title>
+    
+    <!-- CSS -->
+    <link rel="stylesheet" href="style.css">
+    
+    <!-- TensorFlow.js -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.11.0/dist/tf.min.js"></script>
+    <!-- MobileNet Model -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.0/dist/mobilenet.min.js"></script>
+    <!-- KNN Classifier for custom training -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/knn-classifier@1.2.4/dist/knn-classifier.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🥖 Sistema de Cadastro de Produtos</h1>
+            <p>Gerencie os produtos da sua padaria</p>
+        </div>
+
+        <div class="content">
+            <!-- Sistema de Abas -->
+            <div class="tabs">
+                <button class="tab active" onclick="abrirAba(event, 'abaCadastro')">
+                    <span class="tab-icon">📝</span>
+                    Cadastro
+                </button>
+                <button class="tab" onclick="abrirAba(event, 'abaTreinamento')">
+                    <span class="tab-icon">🎓</span>
+                    Treinar
+                </button>
+                <button class="tab" onclick="abrirAba(event, 'abaReconhecimento')">
+                    <span class="tab-icon">🔍</span>
+                    Reconhecer
+                </button>
+            </div>
+
+            <!-- ABA 1: CADASTRO DE PRODUTOS -->
+            <div id="abaCadastro" class="tab-content active">
+                <!-- Estatísticas -->
+                <div class="stats">
+                    <div class="stat-card">
+                        <h3 id="totalProdutos">0</h3>
+                        <p>Total de Produtos</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3 id="valorTotal">R$ 0,00</h3>
+                        <p>Valor Total em Estoque</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3 id="estoqueTotal">0</h3>
+                        <p>Quantidade em Estoque</p>
+                    </div>
+                </div>
+
+                <!-- Formulário de Cadastro -->
+                <div class="form-section">
+                    <h2>📝 Cadastrar Novo Produto</h2>
+                    
+                    <div id="alertContainer"></div>
+
+                    <form id="produtoForm">
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="codigoProduto">Código do Produto *</label>
+                                <input type="text" id="codigoProduto" required placeholder="Ex: PAD-0001" pattern="[A-Za-z0-9\-]+" title="Use apenas letras, números e hífen">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="nomeProduto">Nome do Produto *</label>
+                                <input type="text" id="nomeProduto" required placeholder="Ex: Pão Francês">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="categoria">Categoria *</label>
+                                <select id="categoria" required>
+                                    <option value="">Selecione...</option>
+                                    <option value="Pães">Pães</option>
+                                    <option value="Bolos">Bolos</option>
+                                    <option value="Doces">Doces</option>
+                                    <option value="Salgados">Salgados</option>
+                                    <option value="Bebidas">Bebidas</option>
+                                    <option value="Outros">Outros</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="preco">Preço (R$) *</label>
+                                <input type="number" id="preco" step="0.01" min="0" required placeholder="0.00">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="quantidade">Quantidade em Estoque *</label>
+                                <input type="number" id="quantidade" min="0" required placeholder="0">
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="descricao">Descrição</label>
+                            <textarea id="descricao" placeholder="Descrição do produto (opcional)"></textarea>
+                        </div>
+
+                        <div style="margin-top: 16px;">
+                            <button type="submit" class="btn btn-primary">
+                                <span id="btnText">💾 Cadastrar Produto</span>
+                            </button>
+                            <button type="button" class="btn btn-secondary" id="btnCancelar" style="display: none;">
+                                ✖ Cancelar
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Lista de Produtos -->
+                <div class="products-section">
+                    <h2>📦 Produtos Cadastrados</h2>
+                    
+                    <div class="search-box">
+                        <input type="text" id="searchInput" placeholder="🔍 Buscar por código, nome ou categoria...">
+                    </div>
+
+                    <div id="produtosContainer" class="products-list">
+                        <div class="empty-state">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                            </svg>
+                            <h3>Nenhum produto cadastrado</h3>
+                            <p>Adicione seu primeiro produto</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ABA 2: TREINAMENTO DE IMAGENS -->
+            <div id="abaTreinamento" class="tab-content">
+                <div class="camera-section">
+                    <h2>🎓 Treinar Reconhecimento</h2>
+                    <p style="font-size: 0.9em; color: #666; margin-bottom: 16px;">
+                        Ensine o sistema a reconhecer seus produtos capturando fotos deles.
+                    </p>
+                    
+                    <div class="camera-controls">
+                        <button id="btnIniciarCameraTreino" class="btn btn-camera">📸 Iniciar Câmera</button>
+                        <button id="btnPararCameraTreino" class="btn btn-secondary" style="display: none;">⏹ Parar Câmera</button>
+                    </div>
+
+                    <div class="camera-container" id="cameraContainerTreino" style="display: none;">
+                        <video id="webcamTreino" autoplay playsinline></video>
+                    </div>
+
+                    <div id="loadingModelTreino" class="loading-indicator" style="display: none;">
+                        <div class="spinner"></div>
+                        <p>Carregando modelo de IA...</p>
+                    </div>
+                    
+                    <div class="training-section" style="margin-top: 16px;">
+                        <h4>🎯 Selecione o Produto</h4>
+                        
+                        <select id="selectProdutoTreino" class="select-product">
+                            <option value="">Selecione um produto para treinar...</option>
+                        </select>
+
+                        <div class="training-controls">
+                            <button id="btnAdicionarAmostra" class="btn btn-train" disabled>
+                                📸 Capturar Amostra
+                            </button>
+                            <button id="btnLimparTreino" class="btn btn-secondary">
+                                🗑️ Limpar Tudo
+                            </button>
+                        </div>
+
+                        <div id="trainingStatus"></div>
+                        <div id="trainingList"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ABA 3: RECONHECIMENTO -->
+            <div id="abaReconhecimento" class="tab-content">
+                <div class="camera-section">
+                    <h2>🔍 Reconhecer Produto</h2>
+                    <p style="font-size: 0.9em; color: #666; margin-bottom: 16px;">
+                        Aponte a câmera para um produto treinado e identifique-o automaticamente.
+                    </p>
+                    
+                    <div class="camera-controls">
+                        <button id="btnIniciarCamera" class="btn btn-camera">📸 Iniciar Câmera</button>
+                        <button id="btnCapturar" class="btn btn-capture" style="display: none;">🔍 Reconhecer</button>
+                        <button id="btnPararCamera" class="btn btn-secondary" style="display: none;">⏹ Parar</button>
+                    </div>
+
+                    <div class="camera-container" id="cameraContainer" style="display: none;">
+                        <video id="webcam" autoplay playsinline></video>
+                        <canvas id="canvas"></canvas>
+                    </div>
+
+                    <div id="loadingModel" class="loading-indicator" style="display: none;">
+                        <div class="spinner"></div>
+                        <p>Carregando modelo de IA...</p>
+                    </div>
+
+                    <div id="recognitionResult"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript -->
+    <script src="app.js"></script>
+</body>
+</html>
